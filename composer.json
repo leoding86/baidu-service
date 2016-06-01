@@ -1,0 +1,21 @@
+{
+    "name": "leoding86/baidu-service",
+    "description": "The SDKs of Baidu services",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Leo Ding",
+            "email": "leoding86@msn.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "php": ">=5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "leoding86\\BaiduService\\": "src/"
+        }
+    }
+}
