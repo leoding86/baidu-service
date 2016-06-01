@@ -9,7 +9,6 @@ class TTS
     private $enableCache;
     private $cacheRoot;
     private $cacheName;
-    private $audioCacheDir;
 
     private $tex;
     private $lan;
@@ -25,17 +24,26 @@ class TTS
      * 构造实例
      * 可以此时获得访问令牌
      * @param string  $tok          访问令牌
-     * @param boolean $enable_cache 是否允许缓存
      * @param string  $cache_root   缓存目录
      */
-    public function __construct($tok, $enable_cache = false, $cache_root = null)
+    public function __construct($tok, $cache_root = null)
     {
         try {
-            $this->setTok($tok);
-            $this->setEnableCache((bool)$enable_cache);
             if ($cache_root) {
+                $this->setEnableCache(true);
                 $this->setCacheRoot($cache_root);
             }
+            else {
+                $this->setEnableCache(false);
+            }
+
+            $this->setTok($tok);
+            $this->setLan('zh');
+            $this->setCtp(1);
+            $this->setSpd(5);
+            $this->setPit(5);
+            $this->setVol(5);
+            $this->setPer(0);
         }
         catch (Exception $e) {
             $this->error = $e->getMessage();
@@ -48,7 +56,7 @@ class TTS
      * @param  array $files 文件列表
      * @return bool
      */
-    private function checkFilesVaild($files)
+    static private function checkFilesVaild($files)
     {
         if (empty($files)) return false;
 
@@ -70,16 +78,21 @@ class TTS
 
     /**
      * 清除语音文件
-     * @param  array $files 语音文件集合
+     * @param  array   $audio_cache_dir 语音缓存文件夹
+     * @param  boolean $remove_dir      删除目录
      * @return void
      */
-    private function clearAudio($files)
+    private function clearAudio($audio_cache_dir, $remove_dir = true)
     {
-        foreach ($files as $file) {
-            @unlink($this->pathJoin($this->audioCacheDir, $file));
+        if ($files = @scandir($audio_cache_dir)) {
+            foreach ($files as $file) {
+                @unlink($this->pathJoin($audio_cache_dir, $file));
+            }
         }
-        /* 删除缓存目录 */
-        @rmdir($this->audioCacheDir);
+
+        if ($remove_dir) {
+            @rmdir($audio_cache_dir);
+        }
     }
 
     /**
@@ -99,15 +112,19 @@ class TTS
 
     /**
      * 保存语音文件
-     * @param  string $data     语音数据
-     * @param  string $filename 保存的文件名
+     * @param  string $data            语音数据
+     * @param  string $audio_cache_dir 缓存语音目录
+     * @param  string $filename        保存的文件名
      * @return void
      */
-    private function cacheAudio($data, $filename)
+    private function cacheAudio($data, $audio_cache_dir, $filename)
     {
-        $cache_file = $this->pathJoin($this->audioPath, $filname);
-        touch($cache_file);
-        file_put_contents($cache_file, $data);
+        if (!is_dir($audio_cache_dir)) {
+            if (!mkdir($audio_cache_dir)) {
+                throw new \Exception("Cannot create cache directory of audio. The target directory is '" . $audio_cache_dir . "'", 1);
+            }
+        }
+        file_put_contents($audio_cache_dir . '/' . $filename, $data);
     }
 
     /**
@@ -134,14 +151,6 @@ class TTS
         $this->cacheRoot = $dir;
         if (!is_dir($this->cacheRoot)) {
             throw new \Exception("The directory of root of cache is not exists", 1);
-        }
-    }
-
-    public function setCacheName($dir)
-    {
-        $this->audioCacheDir = $this->pathJoin($this->cacheRoot, $dir);
-        if (!is_dir($this->audioCacheDir)) {
-            throw new \Exception("Audio cache directory is not exists", 1);
         }
     }
 
@@ -232,10 +241,16 @@ class TTS
      */
     public function setPer($per)
     {
-        if ($per !== 1 || $per !== 0) {
-            throw new \Exception('Argument \'per\' must be 0 or 1');
+        switch ($per) {
+            case 0:
+            case 1:
+                $this->per = $per;
+                break;
+            
+            default:
+                throw new \Exception('Argument \'per\' must be 0 or 1');
+                break;
         }
-        $this->per = $per;
     }
 
     /**
@@ -243,7 +258,7 @@ class TTS
      * @param  string $path 路径
      * @return string       返回构造后的链接
      */
-    public function pathJoin($path /*[, $path2[, $path3[ ... ]]]*/)
+    static public function pathJoin($path /*[, $path2[, $path3[ ... ]]]*/)
     {
         $args = func_get_args();
         $path = array_reduce($args, function($hold, $item) {
@@ -274,6 +289,32 @@ class TTS
         return preg_match('/[^\/]\/$/', $path) ? substr($path, 0, -1) : $path;
     }
 
+    static public function getAudioByName($name, $cache_root)
+    {
+        $audio_cache_dir = self::pathJoin($cache_root, $name);
+        $files = @scandir($audio_cache_dir);
+
+        if ($files && !empty($files)) {
+            $files = array_diff($files, array('.', '..'));
+            /* 排序文件 */
+            natsort($files);
+
+            if (self::checkFilesVaild($files)) {
+                $audio = '';
+                /* 遍历文件并合成数据 */
+                foreach ($files as $file) {
+                    if (is_file($audio_cache_dir . '/' . $file)) {
+                        $audio .= file_get_contents($audio_cache_dir . '/' . $file);
+                    }
+                }
+
+                return $audio;
+            }
+        }
+
+        throw new \Exception('Audio has not been found in cache.', 1);
+    }
+
     /**
      * 获得语音数据
      * @param  string  $name
@@ -281,30 +322,13 @@ class TTS
      */
     public function getAudio($name)
     {
-        $files = @scandir($this->audioCacheDir);
-
-        if ($files && $files = array_diff($files, array('.', '..')) && !empty($files)) {
-            /* 排序文件 */
-            natsort($files);
-
-            if ($this->checkFilesVaild($files)) {
-                $audio = '';
-                /* 遍历文件并合成数据 */
-                foreach ($files as $file) {
-                    if (is_file($this->audioCacheDir . '/' . $file)) {
-                        $audio .= file_get_contents($this->audioCacheDir . '/' . $file);
-                    }
-                }
-
-                return $audio;
-            }
-            /* 清除文件 */
-            else {
-                $this->clearAudio($files);
-            }
+        try {
+            return self::getAudioByName($name, $this->cacheRoot);
         }
-
-        throw new \Exception('Audio has not been found in cache.');
+        catch (Exception $e) {
+            $this->clearAudio(self::pathJoin($this->cacheRoot, $name));
+            throw new \Exception($e->getMessage(), 1);
+        }
     }
 
     /**
@@ -342,13 +366,15 @@ class TTS
         $requests = array();
         $counter = 1;
         foreach ($texParts as $tex) {
-            $filename .= $counter;
             $post_data = array(
                 'tex'   => $this->doubleUrlencode($tex),
                 'lan'   => $this->lan,
+                'tok'   => $this->doubleUrlencode($this->tok),
                 'ctp'   => $this->ctp,
                 'cuid'  => $this->doubleUrlencode($this->cuid),
-                'tok'   => $this->doubleUrlencode($this->accessToken),
+                'spd'   => $this->spd,
+                'pit'   => $this->pit,
+                'vol'   => $this->vol,
                 'per'   => $this->per,
             );
 
@@ -361,32 +387,48 @@ class TTS
             );
             $counter++;
         }
+        // var_dump($requests);
 
         $Request = new Request();
-        $Request->method('post');
+        $Request->setMethod('post');
         $Request->setAsynRequests($requests);
-        $Request->sendRequestAsyn();
-        $results = $Request->getAsynResponses();
 
-        // var_dump($post_data);
-        // var_dump($Request->resultBody());
+        try {
+            $Request->sendRequestAsyn();
+            $responses = $Request->getAsynResponses();
 
-        $audio = '';
-        $counter = 1;
-        foreach ($results as $result) {
-            if ($result->resultHeaders['content-type'] == 'audio/mp3') {
-                $audio .= $result->resultBody;
-                if ($this->enableCache) {
-                    $this->cacheAudio($result->resultBody, $this->pathJoin($name, $counter . '.mp3'));
+            // var_dump($responses);
+            // var_dump($post_data);
+            // var_dump($Request->responseBody());
+
+            $audio_cache_dir = $this->pathJoin($this->cacheRoot, $name);
+            $this->clearAudio($audio_cache_dir, false);
+            $audio = '';
+            $counter = 1;
+            foreach ($responses as $response) {
+                if ($response->responseHeaders['content-type'] == 'audio/mp3') {
+                    $audio .= $response->responseBody;
+                    if ($this->enableCache) {
+                        try {
+                            $this->cacheAudio($response->responseBody, $audio_cache_dir, $counter . '.mp3');
+                        }
+                        catch (Exception $e) {
+                            $this->error = $e->getMessage();
+                            return false;
+                        }
+                    }
                 }
+                else {
+                    throw new \Exception('Some error occurs when build audio', 1);
+                }
+                $counter++;
             }
-            else {
-                throw new \Exception('Some error occurs when build audio', 1);
-            }
-            $counter++;
+
+            return $audio;
         }
-
-        return $audio;
+        catch (Exception $e) {
+            $this->error = $e->getMessage();
+            return false;
+        }
     }
-
 }

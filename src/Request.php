@@ -24,7 +24,7 @@ class Request {
         $this->error = null;
         $this->setUrl($url);
         $this->params($params);
-        $this->method($method);
+        $this->setMethod($method);
         $this->needEncoding($need_encoding);
     }
 
@@ -45,7 +45,7 @@ class Request {
         $this->params = is_array($params) ? $params : array();
     }
 
-    public function method($method)
+    public function setMethod($method)
     {
         $this->method = $method;
     }
@@ -94,9 +94,9 @@ class Request {
         $response = curl_exec($ch);
 
         if (curl_errno($ch)) {
+            $error = curl_error($ch);
             curl_close($ch);
-            $this->error = 'E1';
-            return false;
+            throw new \Exception($error, 1);
         }
         else {
             $this->headerInfo = curl_getinfo($ch);
@@ -127,14 +127,13 @@ class Request {
 
         $running = null;
         do {
-            curl_multi_exec($mh, $running);
-            curl_multi_select($mh)
-        } while ($running > 0);
+            $mrc = curl_multi_exec($mh, $running);
+            curl_multi_select($mh);
+        } while ($running > 0 && $mrc == CURLM_OK);
         unset($running);
 
         if ($mrc > 0) {
-            $this->error = curl_multi_strerror($mrc);
-            return false;
+            throw new \Exception(curl_multi_strerror($mrc), 1);
         }
 
         foreach ($ch_handles as $key => $ch) {
@@ -210,12 +209,12 @@ class Request {
     {
         $headers = array();
 
-        foreach (explode("\r\n", $header_text) as $i => $line) {
-            if ($i === 0) {
-                $headers['http_code'] = $line;
+        foreach (explode("\r\n", $header_text) as $line) {
+            if (preg_match('/\s(\d+)\s/', $line, $match)) {
+                $headers['http_code'] = $match[1];
             }
             else if (!empty($line)) {
-                list ($key, $value) = explode(': ', $line);
+                list($key, $value) = explode(': ', $line);
                 $headers[strtolower($key)] = $value;
             }
         }
