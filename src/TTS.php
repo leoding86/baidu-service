@@ -22,7 +22,6 @@ class TTS
 
     /**
      * 构造实例
-     * 可以此时获得访问令牌
      * @param string  $tok          访问令牌
      * @param string  $cache_root   缓存目录
      */
@@ -30,11 +29,11 @@ class TTS
     {
         try {
             if ($cache_root) {
-                $this->setEnableCache(true);
+                $this->enableCache(true);
                 $this->setCacheRoot($cache_root);
             }
             else {
-                $this->setEnableCache(false);
+                $this->enableCache(false);
             }
 
             $this->setTok($tok);
@@ -141,7 +140,7 @@ class TTS
      * 设置是否可以缓存语音
      * @param boolean $enable
      */
-    public function setEnableCache($enable)
+    public function enableCache($enable)
     {
         $this->enableCache = (bool)$enable;
     }
@@ -237,9 +236,9 @@ class TTS
 
     /**
      * 设置朗读性别
-     * @param int $per 0为女声，1为男生
+     * @param int $per 0为女声，1为男声
      */
-    public function setPer($per)
+    public function setPer($per = 0)
     {
         switch ($per) {
             case 0:
@@ -356,7 +355,7 @@ class TTS
      * @param  string $name
      * @return string 语音数据
      */
-    public function buildAudio($name)
+    public function buildAudio($name = null)
     {
         $text_length = mb_strlen($this->tex, 'utf-8');
         $texParts = [];
@@ -407,8 +406,11 @@ class TTS
             // var_dump($post_data);
             // var_dump($Request->responseBody());
 
-            $audio_cache_dir = $this->pathJoin($this->cacheRoot, $name);
-            $this->clearAudio($audio_cache_dir, false);
+            if ($this->enableCache) {
+                $audio_cache_dir = $this->pathJoin($this->cacheRoot, $name);
+                $this->clearAudio($audio_cache_dir, false);
+            }
+
             $audio = '';
             $counter = 1;
             foreach ($responses as $response) {

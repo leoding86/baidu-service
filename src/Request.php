@@ -14,7 +14,6 @@ class Request {
     private $asynResponses;
     private $hasHeader;
     private $headerInfo;
-    private $error;
 
     /**
      * 构造方法
@@ -23,14 +22,13 @@ class Request {
      * @param string $params        请求参数
      * @param string $need_encoding 是否对$params进行url encoding
      */
-    public function __construct($url = null, $method = null, $params = null, $need_encoding = null)
+    public function __construct($url = null, $method = 'get', $params = array(), $need_encoding = false)
     {
         $this->asynRequests = array();
-        $this->method = 'get';
         $this->response = array();
         $this->error = null;
         $this->setUrl($url);
-        $this->params($params);
+        $this->setParams($params);
         $this->setMethod($method);
         $this->needEncoding($need_encoding);
     }
@@ -47,19 +45,10 @@ class Request {
     }
 
     /**
-     * 设置异步请求链接以及参数
-     * @param array $asynRequests [['url' => array, 'options' => array], ...]
-     */
-    public function setAsynRequests(array $asynRequests)
-    {
-        $this->asynRequests = $asynRequests;
-    }
-
-    /**
      * 设置请求参数
      * @param  array  $params 请求参数
      */
-    public function params(array $params)
+    public function setParams(array $params)
     {
         $this->params = $params;
     }
@@ -68,7 +57,7 @@ class Request {
      * 设置请求类型
      * @param string $method 请求类型，如POST，GET等
      */
-    public function setMethod($method)
+    public function setMethod($method = 'get')
     {
         $this->method = $method;
     }
@@ -79,7 +68,7 @@ class Request {
      */
     public function needEncoding($needEncoding)
     {
-        $this->needEncoding = $needEncoding;
+        $this->needEncoding = (boolean)$needEncoding;
     }
 
     /**
@@ -110,6 +99,15 @@ class Request {
     }
 
     /**
+     * 设置异步请求链接以及参数
+     * @param array $asyn_requests [['url' => array, 'options' => array], ...]
+     */
+    public function setAsynRequests(array $asyn_requests)
+    {
+        $this->asynRequests = $asyn_requests;
+    }
+
+    /**
      * 获得异步请求响应集
      * @return array
      */
@@ -119,18 +117,9 @@ class Request {
     }
 
     /**
-     * 获得最近一次错误
-     * @return string
-     */
-    public function getError()
-    {
-        return $this->error;
-    }
-
-    /**
      * 发送请求并返回结果
      * @param  array $options 额外的参数
-     * @return bool
+     * @return void
      */
     public function sendRequest($options = array())
     {
@@ -155,13 +144,12 @@ class Request {
             $this->response = $response;
             $this->responseBody = $this->parseResultBody($this->response);
             $this->responseHeaders = $this->parseResultHeaders($this->response);
-            return true;
         }
     }
 
     /**
      * 发送异步请求
-     * @return bool
+     * @return void
      */
     public function sendRequestAsyn()
     {
@@ -197,8 +185,6 @@ class Request {
         }
 
         curl_multi_close($mh);
-
-        return true;
     }
 
     /**
