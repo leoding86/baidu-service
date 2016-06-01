@@ -16,6 +16,13 @@ class Request {
     private $headerInfo;
     private $error;
 
+    /**
+     * 构造方法
+     * @param string $url           请求链接
+     * @param string $method        请求类型
+     * @param string $params        请求参数
+     * @param string $need_encoding 是否对$params进行url encoding
+     */
     public function __construct($url = null, $method = null, $params = null, $need_encoding = null)
     {
         $this->asynRequests = array();
@@ -28,6 +35,10 @@ class Request {
         $this->needEncoding($need_encoding);
     }
 
+    /**
+     * 设置请求链接
+     * @param string $url 请求链接
+     */
     public function setUrl($url)
     {
         if ($url !== null) {
@@ -35,47 +46,83 @@ class Request {
         }
     }
 
-    public function setAsynRequests($asynRequests)
+    /**
+     * 设置异步请求链接以及参数
+     * @param array $asynRequests [['url' => array, 'options' => array], ...]
+     */
+    public function setAsynRequests(array $asynRequests)
     {
         $this->asynRequests = $asynRequests;
     }
 
-    public function params($params)
+    /**
+     * 设置请求参数
+     * @param  array  $params 请求参数
+     */
+    public function params(array $params)
     {
-        $this->params = is_array($params) ? $params : array();
+        $this->params = $params;
     }
 
+    /**
+     * 设置请求类型
+     * @param string $method 请求类型，如POST，GET等
+     */
     public function setMethod($method)
     {
         $this->method = $method;
     }
 
+    /**
+     * 设置是否需要对请求参数url encode
+     * @param  boolean $needEncoding true为编码，false为不编码
+     */
     public function needEncoding($needEncoding)
     {
         $this->needEncoding = $needEncoding;
     }
 
-    public function getResult()
+    /**
+     * 获得请求响应
+     * @return string
+     */
+    public function getResponse()
     {
         return $this->response;
     }
 
-    public function getResultBody()
+    /**
+     * 获得请求响应正文
+     * @return string
+     */
+    public function getResponseBody()
     {
         return $this->responseBody;
     }
 
-    public function getResultHeaders()
+    /**
+     * 获得请求响应头
+     * @return array
+     */
+    public function getResponseHeaders()
     {
         return $this->responseHeaders;
     }
 
+    /**
+     * 获得异步请求响应集
+     * @return array
+     */
     public function getAsynResponses()
     {
         return $this->asynResponses;
     }
 
-    public function error()
+    /**
+     * 获得最近一次错误
+     * @return string
+     */
+    public function getError()
     {
         return $this->error;
     }
@@ -87,6 +134,10 @@ class Request {
      */
     public function sendRequest($options = array())
     {
+        if (!$this->url) {
+            throw new \Exception("Url is not a valid url", 1);
+        }
+
         $ch = curl_init($this->url);
         // 设置curl
         $this->setCurlOptions($ch, $options);

@@ -289,6 +289,12 @@ class TTS
         return preg_match('/[^\/]\/$/', $path) ? substr($path, 0, -1) : $path;
     }
 
+    /**
+     * 根据缓存名称和缓存根路径来获得语音数据
+     * @param  string $name       缓存语音名称
+     * @param  string $cache_root 缓存根目录
+     * @return string             语音数据
+     */
     static public function getAudioByName($name, $cache_root)
     {
         $audio_cache_dir = self::pathJoin($cache_root, $name);
