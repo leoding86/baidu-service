@@ -3,14 +3,31 @@
 
 ##说明：
 
+----------
+
+###ICacheObject 接口
+
+**__construct($save_dir, $save_name)**
+构造实例并初始化配置
+$save_dir  string 缓存目录
+$save_name string 缓存文件名
+
+**cacheAccessToken($access_token)**
+缓存令牌信息
+$access_token string 需要缓存的令牌信息
+
+**getAccessToken()**
+获得令牌信息
+
+----------
+
 ###ClientCredentialsOauth 类
 
 #####公共方法
 
-**__construct($saved_path, $saved_name, $client_id, $client_secret, $grant_type)**  
+**__construct($cache_object, $client_id, $client_secret, $grant_type)**  
 构造实例并初始化配置，如果初始化出错，将会抛出 \Exception 异常  
-$saved_path    缓存token的路径  
-$saved_name    缓存token的文件名称，不需要扩展名  
+$cache_object  缓存操作对象 
 $client_id     应用的app id  
 $client_secret 应用的app secret  
 $grant_type    授权类型，暂时仅支持 client_credentials
