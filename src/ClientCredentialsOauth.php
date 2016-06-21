@@ -72,7 +72,7 @@ class ClientCredentialsOauth
      * 设置缓存操作对象
      * @param ICacheObject $cache_object 缓存操作对象
      */
-    public function setCacheObject(ICacheObject $cache_object)
+    private function setCacheObject(ICacheObject $cache_object)
     {
         $this->cacheObject = $cache_object;
     }
