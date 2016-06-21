@@ -7,11 +7,6 @@
 
 ###ICacheObject 接口
 
-**__construct($save_dir, $save_name)**
-构造实例并初始化配置
-$save_dir  string 缓存目录
-$save_name string 缓存文件名
-
 **cacheAccessToken($access_token)**
 缓存令牌信息
 $access_token string 需要缓存的令牌信息
