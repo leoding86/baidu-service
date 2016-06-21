@@ -4,9 +4,10 @@ namespace leoding86\BaiduService;
 class ClientCredentialsOauth
 {
     const ACCESS_TOKEN_URL = 'https://openapi.baidu.com/oauth/2.0/token';
-    const DS = DIRECTORY_SEPARATOR;
 
     private $nowTime;
+    private $cacheObject;
+
     private $savedPath;
     private $savedName;
     private $savedFile;
@@ -27,35 +28,17 @@ class ClientCredentialsOauth
      * @param string $client_secret 应用的secret
      * @param string $grant_type    授权类型
      */
-    public function __construct($saved_path, $saved_name, $client_id, $client_secret, $grant_type = 'client_credentials')
-    {
+    public function __construct(
+        ICacheObject $cache_object,
+        $client_id,
+        $client_secret,
+        $grant_type = 'client_credentials'
+    ) {
         $this->nowTime = time();
-        $this->setSavedPath($saved_path);
-        $this->setSavedName($saved_name);
+        $this->setCacheObject($cache_object);
         $this->setClientId($client_id);
         $this->setClientSecret($client_secret);
         $this->setGrantType($grant_type);
-    }
-
-    /**
-     * 设置缓存token路径
-     * @param string $save_path 缓存token的路径
-     */
-    private function setSavedPath($save_path)
-    {
-        if (!is_dir($save_path)) {
-            throw new \Exception("Save path is not exsits", 1);
-        }
-        $this->savedPath = $save_path;
-    }
-
-    /**
-     * 设置缓存token的文件名
-     * @param string $saved_name 缓存token的文件名
-     */
-    private function setSavedName($saved_name)
-    {
-        $this->savedName = $saved_name;
     }
 
     /**
@@ -83,6 +66,15 @@ class ClientCredentialsOauth
     private function setClientSecret($client_secret)
     {
         $this->clientSecret = $client_secret;
+    }
+
+    /**
+     * 设置缓存操作对象
+     * @param ICacheObject $cache_object 缓存操作对象
+     */
+    public function setCacheObject(ICacheObject $cache_object)
+    {
+        $this->cacheObject = $cache_object;
     }
 
     /**
@@ -133,22 +125,13 @@ class ClientCredentialsOauth
                 $this->accessTokenFormat =& $access_token_format;
                 $this->accessTokenRaw = json_encode($access_token_format);
                 // $this->accessToken = $access_token_format['access_token'];
-                $this->cacheAccessToken();
+                $this->cacheObject->cacheAccessToken($this->accessTokenRaw);
                 return true;
             }
         }
         catch (Exception $e) { }
 
         return false;
-    }
-
-    /**
-     * 构建缓存token的文件路径
-     * @return string 缓存token的文件路径
-     */
-    private function buildSavedAccessToken()
-    {
-        $this->savedPath = $this->savedPath . self::DS . $this->savedName . '.json';
     }
 
     /**
@@ -168,23 +151,24 @@ class ClientCredentialsOauth
      */
     public function readAccessToken()
     {
-        $this->buildSavedAccessToken();
+        // $this->buildSavedAccessToken();
 
-        if (is_file($this->savedPath)) {
-            $access_token_raw = file_get_contents($this->savedPath);
+        // if (is_file($this->savedPath)) {
+        // $access_token_raw = file_get_contents($this->savedPath);
+        $access_token_raw = $this->cacheObject->getAccessToken();
 
-            try {
-                $access_token_format = json_decode($access_token_raw, true);
-                /* 判断token有效期 */
-                if (isset($access_token_format['expires_time']) && $access_token_format['expires_time'] >= $this->nowTime) {
-                    $this->accessTokenRaw = $access_token_raw;
-                    $this->accessTokenFormat = $access_token_format;
-                    // $this->accessToken = $access_token_format['access_token'];
-                    return true;
-                }
+        try {
+            $access_token_format = json_decode($access_token_raw, true);
+            /* 判断token有效期 */
+            if (isset($access_token_format['expires_time']) && $access_token_format['expires_time'] >= $this->nowTime) {
+                $this->accessTokenRaw = $access_token_raw;
+                $this->accessTokenFormat = $access_token_format;
+                // $this->accessToken = $access_token_format['access_token'];
+                return true;
+            }
 
-            } catch (Exception $e) { }
-        }
+        } catch (Exception $e) { }
+        // }
 
         return $this->sendRequest();
     }
