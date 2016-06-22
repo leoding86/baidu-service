@@ -76,25 +76,6 @@ class TTS
     }
 
     /**
-     * 清除语音文件
-     * @param  array   $audio_cache_dir 语音缓存文件夹
-     * @param  boolean $remove_dir      删除目录
-     * @return void
-     */
-    private function clearAudio($audio_cache_dir, $remove_dir = true)
-    {
-        if ($files = @scandir($audio_cache_dir)) {
-            foreach ($files as $file) {
-                @unlink(self::pathJoin($audio_cache_dir, $file));
-            }
-        }
-
-        if ($remove_dir) {
-            @rmdir($audio_cache_dir);
-        }
-    }
-
-    /**
      * 构造POST字符串
      * 
      * @param  array $params 一唯数组
@@ -331,7 +312,7 @@ class TTS
             return self::getAudioByName($name, $this->cacheRoot);
         }
         catch (Exception $e) {
-            $this->clearAudio(self::pathJoin($this->cacheRoot, $name));
+            self::clearAudio(self::pathJoin($this->cacheRoot, $name));
             throw new \Exception($e->getMessage(), 1);
         }
     }
@@ -408,7 +389,7 @@ class TTS
 
             if ($this->enableCache) {
                 $audio_cache_dir = $this->pathJoin($this->cacheRoot, $name);
-                $this->clearAudio($audio_cache_dir, false);
+                self::clearAudio($audio_cache_dir, false);
             }
 
             $audio = '';
@@ -437,6 +418,25 @@ class TTS
         catch (Exception $e) {
             $this->error = $e->getMessage();
             return false;
+        }
+    }
+
+    /**
+     * 清除语音文件
+     * @param  array   $audio_cache_dir 语音缓存文件夹
+     * @param  boolean $remove_dir      删除目录
+     * @return void
+     */
+    public static function clearAudio($audio_cache_dir, $remove_dir = true)
+    {
+        if ($files = @scandir($audio_cache_dir)) {
+            foreach ($files as $file) {
+                @unlink(self::pathJoin($audio_cache_dir, $file));
+            }
+        }
+
+        if ($remove_dir) {
+            @rmdir($audio_cache_dir);
         }
     }
 }
