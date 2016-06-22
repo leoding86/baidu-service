@@ -85,7 +85,7 @@ class TTS
     {
         if ($files = @scandir($audio_cache_dir)) {
             foreach ($files as $file) {
-                @unlink($this->pathJoin($audio_cache_dir, $file));
+                @unlink(self::pathJoin($audio_cache_dir, $file));
             }
         }
 
