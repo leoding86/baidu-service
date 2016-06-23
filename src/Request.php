@@ -168,7 +168,7 @@ class Request {
         do {
             $mrc = curl_multi_exec($mh, $running);
             curl_multi_select($mh);
-        } while ($running > 0 && $mrc == CURLM_OK);
+        } while ($running > 0);
         unset($running);
 
         if ($mrc > 0) {
