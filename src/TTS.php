@@ -6,6 +6,7 @@ class TTS
     const API_URL = 'http://tsn.baidu.com/text2audio';
     const TEXT_LIMIT = 256 - 1;
 
+    private $error;
     private $enableCache;
     private $cacheRoot;
     private $cacheName;
@@ -118,6 +119,15 @@ class TTS
     }
 
     /**
+     * 获得最近一次错误信息
+     * @return string 错误信息
+     */
+    public function getError()
+    {
+        return $this->error;
+    }
+
+    /**
      * 设置是否可以缓存语音
      * @param boolean $enable
      */
@@ -126,6 +136,10 @@ class TTS
         $this->enableCache = (bool)$enable;
     }
 
+    /**
+     * 设置缓存语音的根路径
+     * @param string $dir 有效目录
+     */
     public function setCacheRoot($dir)
     {
         $this->cacheRoot = $dir;
@@ -406,9 +420,13 @@ class TTS
                             return false;
                         }
                     }
-                }
-                else {
-                    throw new \Exception('Some error occurs when build audio', 1);
+                } elseif (strpos($response->responseHeaders['content-type'], 'json')) {
+                    $error = json_decode($response->responseBody, true);
+                    $this->error = $error['err_msg'];
+                    return false;
+                } else {
+                    $this->error = 'Unkown error';
+                    return false;
                 }
                 $counter++;
             }
