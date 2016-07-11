@@ -4,7 +4,7 @@ namespace leoding86\BaiduService;
 class TTS
 {
     const API_URL = 'http://tsn.baidu.com/text2audio';
-    const TEXT_LIMIT = 256 - 1;
+    const TEXT_LIMIT = 255; /* 256 - 1  */
 
     private $error;
     private $enableCache;
