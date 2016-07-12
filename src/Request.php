@@ -171,7 +171,7 @@ class Request {
         } while ($running > 0);
         unset($running);
 
-        if ($mrc > 0) {
+        if ($mrc !== CURLM_OK) {
             throw new \Exception(curl_multi_strerror($mrc), 1);
         }
 
