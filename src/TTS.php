@@ -462,7 +462,7 @@ class TTS
      */
     public static function clearAudio($audio_cache_dir, $remove_dir = true)
     {
-        if ($files = @scandir($audio_cache_dir)) {
+        if ($files = self::scandir($audio_cache_dir)) {
             foreach ($files as $file) {
                 @unlink(self::pathJoin($audio_cache_dir, $file));
             }
