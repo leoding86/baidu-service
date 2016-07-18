@@ -248,6 +248,21 @@ class TTS
     }
 
     /**
+     * alternatives to scandir()
+     * @param  string $dir 目录
+     * @return array
+     */
+    public static function scandir($dir)
+    {
+        $dh = @opendir($dir);
+        while (false !== ($filename = readdir($dh))) {
+            $files[] = $filename;
+        }
+        sort($files);
+        return $files;
+    }
+
+    /**
      * 构造链接
      * @param  string $path 路径
      * @return string       返回构造后的链接
@@ -292,7 +307,7 @@ class TTS
     static public function getAudioByName($name, $cache_root)
     {
         $audio_cache_dir = self::pathJoin($cache_root, $name);
-        $files = @scandir($audio_cache_dir);
+        $files = self::scandir($audio_cache_dir);
 
         if ($files && !empty($files)) {
             $files = array_diff($files, array('.', '..'));
