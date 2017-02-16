@@ -321,7 +321,9 @@ class TTS
     {
         if ($dh = @opendir($dir)) {  
             while (false !== ($filename = readdir($dh))) {
-                $files[] = $filename;
+                if ($filename !== '.' && $filename !== '..') {
+                    $files[] = $filename;
+                }
             }
             sort($files);
             return $files;
