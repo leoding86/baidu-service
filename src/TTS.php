@@ -10,8 +10,6 @@ class TTS
     private $enableCache;
     private $cacheRoot;
     private $cacheName;
-    private $mergeAudio;
-    private $mergeAudioHandle;
 
     private $tex;
     private $lan;
@@ -30,9 +28,6 @@ class TTS
      */
     public function __construct($tok, $cache_root = null)
     {
-        $this->mergeAudioHandle = null;
-        $this->mergeAudio = $this->mergeAudio(false);
-
         try {
             if ($cache_root) {
                 $this->enableCache(true);
@@ -53,8 +48,6 @@ class TTS
         catch (Exception $e) {
             $this->error = $e->getMessage();
         }
-
-        return $this;
     }
 
     /**
@@ -63,7 +56,7 @@ class TTS
      * @param  array $files 文件列表
      * @return bool
      */
-    private static function checkFilesVaild($files)
+    static private function checkFilesVaild($files)
     {
         if (empty($files)) return false;
 
@@ -91,11 +84,11 @@ class TTS
      */
     private function buildPostBody($params)
     {
-        $body = '';
+        $tmp = array();
         foreach ($params as $name => $value) {
-            $body .= $name . '=' . $value . '&';
+            $tmp[] = $name . '=' . $value;
         }
-        return $body;
+        return implode('&', $tmp);
     }
 
     /**
@@ -116,57 +109,13 @@ class TTS
     }
 
     /**
-     * 合并音频数据
-     * 
-     * @param  string $part_data 音频数据
-     * @param  string $filename  缓存文件名
-     * @return void
-     */
-    private function cacheMergeAudio($part_data, $filename)
-    {
-        if ($this->mergeAudioHandle === null) {
-            
-            if (is_file($filename)) {
-
-                if (!is_writable($filename)) {
-                    throw new \Exception('Cache file is not writeable', 1);
-                }
-            }
-
-            $this->mergeAudioHandle = fopen($filename, 'w');
-        }
-
-        $tmp_file_handle = tmpfile();
-        $tmp_file_datasets = stream_get_meta_data($tmp_file_handle);
-        $tmp_file = $tmp_file_datasets['uri'];
-        fwrite($tmp_file_handle, $part_data);
-
-        $getID3 = new \getID3();
-        $tmp_file_info = $getID3->analyze($tmp_file);
-        fseek($tmp_file_handle, $tmp_file_info['avdataoffset'], SEEK_SET);
-
-        while (!feof($tmp_file_handle)) {
-            $data_length = $tmp_file_info['avdataend'] - ftell($tmp_file_handle);
-
-            if ($data_length >= 32768) {
-                fwrite($this->mergeAudioHandle, fread($tmp_file_handle, 32768));
-            } else {
-                fwrite($this->mergeAudioHandle, fread($tmp_file_handle, $data_length));
-                break;
-            }
-        }
-
-        fclose($tmp_file_handle);
-    }
-
-    /**
      * 两次转化链接参数
      * @param  string $string 链接参数值
      * @return string         转化以后的值
      */
     private function doubleUrlencode($string)
     {
-        return urlencode(urlencode($string));
+        return rawurlencode(rawurlencode($string));
     }
 
     /**
@@ -196,20 +145,6 @@ class TTS
         $this->cacheRoot = $dir;
         if (!is_dir($this->cacheRoot)) {
             throw new \Exception("The directory of root of cache is not exists", 1);
-        }
-    }
-
-    /**
-     * 设置是否将音频合成为一个文件
-     * @param  boolean $boolean
-     * @return void
-     */
-    public function mergeAudio($boolean)
-    {
-        if ((boolean)$boolean === $boolean) {
-            $this->mergeAudio = $boolean;
-        } else {
-            throw new \Exception('TTS::mergeAudio must be boolean.');
         }
     }
 
@@ -370,39 +305,30 @@ class TTS
 
     /**
      * 根据缓存名称和缓存根路径来获得语音数据
-     * 先获得合并数据，如果没有数据，则尝试获得动态合并数据
-     * 
      * @param  string $name       缓存语音名称
      * @param  string $cache_root 缓存根目录
-     * @param  boolean $merge_audio 获得合并后的数据
      * @return string             语音数据
      */
-    public static function getAudioByName($name, $cache_root)
+    static public function getAudioByName($name, $cache_root)
     {
-        $audio_cache_name = self::pathJoin($cache_root, $name . '.mp3');
+        $audio_cache_dir = self::pathJoin($cache_root, $name);
+        $files = self::scandir($audio_cache_dir);
 
-        if (is_readable($audio_cache_name)) {
-            return file_get_contents($audio_cache_name);
-        } else {
-            $audio_cache_dir = self::pathJoin($cache_root, $name);
-            $files = self::scandir($audio_cache_dir);
+        if ($files && !empty($files)) {
+            $files = array_diff($files, array('.', '..'));
+            /* 排序文件 */
+            natsort($files);
 
-            if ($files && !empty($files)) {
-                $files = array_diff($files, array('.', '..'));
-                /* 排序文件 */
-                natsort($files);
-
-                if (self::checkFilesVaild($files)) {
-                    $audio = '';
-                    /* 遍历文件并合成数据 */
-                    foreach ($files as $file) {
-                        if (is_file($audio_cache_dir . '/' . $file)) {
-                            $audio .= file_get_contents($audio_cache_dir . '/' . $file);
-                        }
+            if (self::checkFilesVaild($files)) {
+                $audio = '';
+                /* 遍历文件并合成数据 */
+                foreach ($files as $file) {
+                    if (is_file($audio_cache_dir . '/' . $file)) {
+                        $audio .= file_get_contents($audio_cache_dir . '/' . $file);
                     }
-
-                    return $audio;
                 }
+
+                return $audio;
             }
         }
 
@@ -420,7 +346,7 @@ class TTS
             return self::getAudioByName($name, $this->cacheRoot);
         }
         catch (Exception $e) {
-            self::clearAudio($this->cacheRoot, $name);
+            self::clearAudio(self::pathJoin($this->cacheRoot, $name));
             throw new \Exception($e->getMessage(), 1);
         }
     }
@@ -460,6 +386,10 @@ class TTS
         $requests = array();
         $counter = 1;
         foreach ($texParts as $tex) {
+            $tex = trim(preg_replace(array('/[\x{3000}\x{00A0}]/u'), '', $tex));
+
+            if (empty($tex)) continue;
+
             $post_data = array(
                 'tex'   => $this->doubleUrlencode($tex),
                 'lan'   => $this->lan,
@@ -496,42 +426,28 @@ class TTS
             // var_dump($Request->responseBody());
 
             if ($this->enableCache) {
-
-                if ($this->mergeAudio === true) {
-                    $audio_cache_name = $this->pathJoin($this->cacheRoot, $name . '.mp3');
-                } else {
-                    $audio_cache_dir = $this->pathJoin($this->cacheRoot, $name);
-                }
-                self::clearAudio($this->cacheRoot, $name, false);
+                $audio_cache_dir = $this->pathJoin($this->cacheRoot, $name);
+                self::clearAudio($audio_cache_dir, false);
             }
 
             $audio = '';
             $counter = 1;
             foreach ($responses as $response) {
-                if ($response->responseHeaders['content-type'] == 'audio/mp3') {
+                if (strpos($response->responseHeaders['content-type'], 'mp3')) {
                     $audio .= $response->responseBody;
                     if ($this->enableCache) {
-
-                        if ($this->mergeAudio === true) {
-                            try {
-                                $this->cacheMergeAudio($response->responseBody, $audio_cache_name);
-                            } catch (Exception $e) {
-                                $this->error = $e->getMessage();
-                                return false;
-                            }
-                        } else {
-                            try {
-                                $this->cacheAudio($response->responseBody, $audio_cache_dir, $counter . '.mp3');
-                            }
-                            catch (Exception $e) {
-                                $this->error = $e->getMessage();
-                                return false;
-                            }
+                        try {
+                            $this->cacheAudio($response->responseBody, $audio_cache_dir, $counter . '.mp3');
+                        }
+                        catch (Exception $e) {
+                            $this->error = $e->getMessage();
+                            return false;
                         }
                     }
                 } elseif (strpos($response->responseHeaders['content-type'], 'json')) {
                     $error = json_decode($response->responseBody, true);
-                    $this->error = $error['err_msg'];
+                    $this->error = $error['err_msg'] . '[' . $error['err_no'] . ']' . $this->buildPostBody($post_data)
+                                   . '[full_tex: ' . $this->tex . ']';
                     return false;
                 } else {
                     $this->error = 'Unkown error';
@@ -550,26 +466,20 @@ class TTS
 
     /**
      * 清除语音文件
-     * @param  array   $cache_root 语音缓存根目录
-     * @param  array   $cache_name 语音缓存文件名
+     * @param  array   $audio_cache_dir 语音缓存文件夹
      * @param  boolean $remove_dir      删除目录
      * @return void
      */
-    public static function clearAudio($cache_root, $cache_name, $remove_dir = true)
+    public static function clearAudio($audio_cache_dir, $remove_dir = true)
     {
-        $cache_dir = self::pathJoin($cache_root, $cache_name);
-
-        if ($files = self::scandir($cache_dir)) {
+        if ($files = self::scandir($audio_cache_dir)) {
             foreach ($files as $file) {
-                @unlink(self::pathJoin($cache_dir, $file));
+                @unlink(self::pathJoin($audio_cache_dir, $file));
             }
         }
 
         if ($remove_dir) {
-            @rmdir($cache_dir);
+            @rmdir($audio_cache_dir);
         }
-
-        $cache_file = self::pathJoin($cache_root, $cache_name . '.mp3');
-        @unlink($cache_file);
     }
 }
